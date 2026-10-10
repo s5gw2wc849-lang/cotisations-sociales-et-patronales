@@ -18,8 +18,7 @@ def clamp0 (x : Eur) : Eur := max 0 x
     Cette primitive unique sert au plafonnement de sécurité sociale
     (`decoupeTranches`) comme au barème de la taxe sur les salaires. -/
 def decoupeBareme (x s1 s2 : Eur) : Eur × Eur × Eur :=
-  let t1 := min x s1
-  (t1, clamp0 (min x s2 - s1), clamp0 (x - s2))
+  (min x s1, clamp0 (min x s2 - s1), clamp0 (x - s2))
 
 /-- Découpage d'une assiette selon les tranches de plafond. -/
 structure Tranches where

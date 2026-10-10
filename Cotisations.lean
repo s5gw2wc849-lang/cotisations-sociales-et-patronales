@@ -18,4 +18,5 @@ import Cotisations.Taxes
 import Cotisations.Convention
 import Cotisations.Syntech
 import Cotisations.Bulletin
+import Cotisations.Invariants
 import Cotisations.Exemples

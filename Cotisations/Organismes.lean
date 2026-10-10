@@ -55,15 +55,24 @@ structure LigneCotisation where
   deriving Repr, DecidableEq, Inhabited
 
 def LigneCotisation.estNulle (l : LigneCotisation) : Bool :=
-  l.partSalariale == 0 && l.partPatronale == 0
+  decide (l.partSalariale = 0 ∧ l.partPatronale = 0)
+
+/-- Une ligne nulle porte deux parts nulles. -/
+theorem LigneCotisation.estNulle_parts (l : LigneCotisation) (h : l.estNulle = true) :
+    l.partSalariale = 0 ∧ l.partPatronale = 0 :=
+  of_decide_eq_true h
+
+/-- Somme générique d'une quantité `f` sur une liste de lignes. -/
+def sommeSur (f : LigneCotisation → Eur) (l : List LigneCotisation) : Eur :=
+  l.foldl (fun acc x => acc + f x) 0
 
 /-- Somme des parts salariales d'une liste de lignes. -/
 def sommeSalariale (l : List LigneCotisation) : Eur :=
-  l.foldl (fun acc x => acc + x.partSalariale) 0
+  sommeSur (fun x => x.partSalariale) l
 
 /-- Somme des parts patronales (réductions négatives comprises). -/
 def sommePatronale (l : List LigneCotisation) : Eur :=
-  l.foldl (fun acc x => acc + x.partPatronale) 0
+  sommeSur (fun x => x.partPatronale) l
 
 /-! ### Constructeurs de lignes -/
 
@@ -89,16 +98,22 @@ def ligneMixte (nom : String) (org : Organisme) (nat : NatureCotisation)
     partSalariale := partSalariale, partPatronale := partPatronale
     commentaire := commentaire }
 
-/-- Agrège les montants versés à chaque organisme (salarial + patronal),
-    dans l'ordre d'apparition. -/
+/-- Liste exhaustive des organismes collecteurs (sans doublon). -/
+def Organisme.tous : List Organisme :=
+  [.urssaf, .agircArrco, .apec, .dgfip, .carsat, .mutuelle, .prevoyance,
+   .retraiteSupplementaire, .caisseCongesPayes]
+
+theorem Organisme.tous_complet (o : Organisme) : o ∈ Organisme.tous := by
+  cases o <;> simp [Organisme.tous]
+
+/-- Montant total (salarial + patronal) versé à un organisme donné. -/
+def montantOrganisme (org : Organisme) (l : List LigneCotisation) : Eur :=
+  l.foldl (fun acc x =>
+    acc + (if x.organisme == org then x.partSalariale + x.partPatronale else 0)) 0
+
+/-- Ventilation des versements par organisme : chaque organisme de la
+    liste exhaustive reçoit le total de ses lignes (montant nul compris). -/
 def versementsParOrganisme (l : List LigneCotisation) : List (Organisme × Eur) :=
-  let ajout (acc : List (Organisme × Eur)) (ligne : LigneCotisation) :
-      List (Organisme × Eur) :=
-    let montant := ligne.partSalariale + ligne.partPatronale
-    match acc.find? (fun p => p.1 == ligne.organisme) with
-    | some _ => acc.map (fun p =>
-        if p.1 == ligne.organisme then (p.1, p.2 + montant) else p)
-    | none => acc ++ [(ligne.organisme, montant)]
-  l.foldl ajout []
+  Organisme.tous.map (fun org => (org, montantOrganisme org l))
 
 end Cotisations

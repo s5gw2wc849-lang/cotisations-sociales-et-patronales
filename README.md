@@ -11,9 +11,22 @@ complémentaire, CSG/CRDS, taxes, réductions — avec, pour chaque ligne,
 l'organisme collecteur, la nature juridique et les agrégats de versement.
 
 Tous les montants sont des rationnels exacts (`Rat`) : aucune perte de
-précision. Les identités et les cas chiffrés officiels sont vérifiés par
-des théorèmes (`native_decide`) : le compilateur prouve que le code
-calcule les valeurs attendues.
+précision. Le projet distingue deux niveaux de vérification, tous deux
+contrôlés par le compilateur :
+
+- **Théorèmes universels** (`Cotisations/Invariants.lean`) — prouvés par
+  déduction dans le noyau Lean, pour **toutes** les entrées : un barème
+  progressif recompose exactement le montant découpé ; les tranches de
+  plafond sont positives, bornées et se recomposent ; la ventilation par
+  organisme conserve le total des lignes ; la réduction générale est
+  nulle au-delà du plafond ; les invariants comptables du bulletin
+  (net = brut − salarial, coût employeur, somme des versements,
+  recomposition des totaux) sont vérifiés pour tout salarié, toute
+  entreprise et toute convention, et se conservent par composition
+  (`Bulletin.avecLignesSupplementaires_invariants`) ;
+- **Ancrages officiels** (`Cotisations/Exemples.lean`) — les exemples
+  chiffrés des sources publiques (Urssaf, Agirc-Arrco, convention
+  SYNTEC) sont des théorèmes vérifiés par `native_decide`.
 
 ## Couverture
 
@@ -92,7 +105,10 @@ Cotisations/
   Convention.lean                   — mutuelle, prévoyance, retraite supplémentaire
   Syntech.lean                      — convention SYNTEC (IDCC 1486)
   Bulletin.lean                     — assemblage du bulletin complet
-  Exemples.lean                     — théorèmes de vérification (exemples officiels)
+  Invariants.lean                   — théorèmes universels (barèmes, ventilation,
+                                      invariants comptables pour toute entrée)
+  Exemples.lean                     — ancrages chiffrés officiels (Urssaf, Agirc-Arrco,
+                                      SYNTEC) et instances des théorèmes universels
 ```
 
 ## Utilisation
@@ -143,11 +159,13 @@ lake build
 ## Limites connues
 
 Le projet est un modèle des règles de calcul, pas un logiciel de paie
-certifié : pas de gestion de la DSN réelle, des régularisations annuelles
-complètes, des exonérations zonées (Lodéom, ZRR…), de l'activité
-partielle, ni des cumuls d'exonérations ; le barème de la contribution
-supplémentaire à l'apprentissage et le calcul du DOETH en points sont
-passés en paramètres ; les montants de mutuelle dépendent du contrat de
-l'entreprise. Sans Mathlib, les propriétés génériques du découpage en
-tranches sont vérifiées sur des cas concrets plutôt que prouvées en
-toute généralité.
+certifié : pas de gestion de la DSN réelle, des régularisations
+annuelles complètes, des exonérations zonées (Lodéom, ZRR…), de
+l'activité partielle, ni des cumuls d'exonérations ; le barème de la
+contribution supplémentaire à l'apprentissage et le calcul du DOETH en
+points sont passés en paramètres ; les montants de mutuelle dépendent
+du contrat de l'entreprise. Les théorèmes universels couvrent le
+découpage des barèmes, la ventilation et les invariants comptables ;
+d'autres propriétés globales (décroissance du coefficient de la
+réduction générale, positivité du net pour toute rémunération)
+restent à énoncer et à prouver.

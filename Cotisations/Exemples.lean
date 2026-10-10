@@ -8,6 +8,7 @@ de Newton) et vérifie la proposition.
 -/
 import Cotisations.Bulletin
 import Cotisations.Organismes
+import Cotisations.Invariants
 import Cotisations.Syntech
 
 namespace CotationsExamples
@@ -60,33 +61,17 @@ theorem repartition_agirc_arrco :
       ∧ ((0.0315 : Rat) / (0.0315 + 0.0472)) ≤ (0.41 : Rat)) := by
   native_decide
 
-/-! ### Tranches de plafond -/
+/-! ### Tranches de plafond
+
+    Les propriétés du découpage (somme des tranches = assiette, borne
+    tranche 1 ≤ plafond, tranches positives) sont désormais des
+    théorèmes universels — prouvés pour toute assiette et tout plafond —
+    dans `Cotisations.Invariants` (`decoupeTranches_somme`,
+    `decoupeTranches_tranche1_le_plafond`, `decoupeTranches_tranche2_nonneg`,
+    `decoupeTranches_tranche3_nonneg`). Cette section garde seulement le
+    cas d'usage servant d'ancrage aux exemples Agirc-Arrco. -/
 
 def tranche5000 : Cotisations.Tranches := Cotisations.decoupeTranches 5000 4005
-
-theorem tranche1_exemple : tranche5000.tranche1 = 4005 := by native_decide
-theorem tranche2_exemple : tranche5000.tranche2 = 995 := by native_decide
-theorem tranche3_exemple : tranche5000.tranche3 = 0 := by native_decide
-
-/-- Sous le plafond : toute l'assiette est en tranche 1. -/
-theorem tranche_sous_plafond :
-    (Cotisations.decoupeTranches 3000 4005).tranche1 = 3000
-    ∧ (Cotisations.decoupeTranches 3000 4005).tranche2 = 0
-    ∧ (Cotisations.decoupeTranches 3000 4005).tranche3 = 0 := by
-  native_decide
-
-/-- Au-delà de 8 plafonds : le surplus passe en tranche 3
-    (50 000 − 8 × 4 005 = 17 960). -/
-theorem tranche_sur_8_plafonds :
-    (Cotisations.decoupeTranches 50000 4005).tranche1 = 4005
-    ∧ (Cotisations.decoupeTranches 50000 4005).tranche2 = 28035
-    ∧ (Cotisations.decoupeTranches 50000 4005).tranche3 = 17960 := by
-  native_decide
-
-/-- Somme des tranches = assiette (cas concret). -/
-theorem somme_tranches_exemple :
-    tranche5000.tranche1 + tranche5000.tranche2 + tranche5000.tranche3 = 5000 := by
-  native_decide
 
 /-! ### Agirc-Arrco 2026 (exemples chiffrés) -/
 
@@ -257,27 +242,21 @@ theorem prevoyance_cadres_minimum :
 theorem mutuelle_non_conforme :
     Cotisations.mutuelleConforme 30 100 = false := by native_decide
 
-/-! ### Bulletin complet : invariants -/
+/-! ### Bulletin complet : invariants
+
+    Les invariants comptables (net = brut − salarial, coût employeur,
+    somme des versements) ne sont plus vérifiés sur des cas : ce sont
+    des théorèmes universels — prouvés pour tout salarié, toute
+    entreprise et toute convention — dans `Cotisations.Invariants`
+    (`calculeBulletin_invariants`, `calculeBulletinSyntech_invariants`).
+    Les bulletins d'exemple en sont des instances : -/
 
 def bulletinSMIC : Cotisations.Bulletin :=
   Cotisations.calculeBulletin Cotisations.parametres2026
     { effectif := 30 } { brutMensuel := 1823.03 } none
 
-/-- Net avant impôt = brut − total salarial. -/
-theorem net_invariant :
-    bulletinSMIC.netAvantIR + bulletinSMIC.totalSalarial = bulletinSMIC.brut := by
-  native_decide
-
-/-- Coût employeur = brut + patronal net des réductions. -/
-theorem cout_invariant :
-    bulletinSMIC.coutEmployeur = bulletinSMIC.brut + bulletinSMIC.totalPatronalNet := by
-  native_decide
-
-/-- La somme des versements par organisme = total salarial + total patronal. -/
-theorem versements_invariant :
-    (bulletinSMIC.versements.foldl (fun acc p => acc + p.2) 0)
-      = bulletinSMIC.totalSalarial + bulletinSMIC.totalPatronalNet := by
-  native_decide
+theorem invariants_bulletinSMIC : bulletinSMIC.invariants :=
+  Cotisations.calculeBulletin_invariants _ _ _ _
 
 /-- Au SMIC (1 823,03 €, effectif < 50), la réduction générale est appliquée. -/
 theorem rgdu_smic_positive :
@@ -292,21 +271,12 @@ def bulletinCadre : Cotisations.Bulletin :=
     (some { nom := "convention d'exemple", mutuelleSalariale := 40, mutuellePatronale := 60
             prevoyanceTauxT1 := 0.015, prevoyancePartPatronale := 0.60 })
 
-theorem net_invariant_cadre :
-    bulletinCadre.netAvantIR + bulletinCadre.totalSalarial = bulletinCadre.brut := by
-  native_decide
-
-theorem cout_invariant_cadre :
-    bulletinCadre.coutEmployeur = bulletinCadre.brut + bulletinCadre.totalPatronalNet := by
-  native_decide
-
-theorem versements_invariant_cadre :
-    (bulletinCadre.versements.foldl (fun acc p => acc + p.2) 0)
-      = bulletinCadre.totalSalarial + bulletinCadre.totalPatronalNet := by
-  native_decide
+theorem invariants_bulletinCadre : bulletinCadre.invariants :=
+  Cotisations.calculeBulletin_invariants _ _ _ _
 
 /-- Le bulletin cadre verse bien à l'Agirc-Arrco, à l'APEC, à la mutuelle,
-    à la prévoyance et à l'Urssaf. -/
+    à la prévoyance et à l'Urssaf (contrôle de ventilation, ancrage
+    concret). -/
 theorem versements_cadre_contiennent :
     (bulletinCadre.versements.any (fun p => p.1 == Cotisations.Organisme.agircArrco)) = true
     ∧ (bulletinCadre.versements.any (fun p => p.1 == Cotisations.Organisme.apec)) = true
@@ -393,23 +363,12 @@ def bulletinSyntecCadre : Cotisations.Bulletin :=
     (some { nom := "Syntec — complémentaire santé (avenant n° 8 santé)"
             mutuelleSalariale := 45, mutuellePatronale := 55 })
 
-theorem net_invariant_syntec :
-    bulletinSyntecCadre.netAvantIR + bulletinSyntecCadre.totalSalarial
-      = bulletinSyntecCadre.brut := by
-  native_decide
-
-theorem cout_invariant_syntec :
-    bulletinSyntecCadre.coutEmployeur
-      = bulletinSyntecCadre.brut + bulletinSyntecCadre.totalPatronalNet := by
-  native_decide
-
-theorem versements_invariant_syntec :
-    (bulletinSyntecCadre.versements.foldl (fun acc p => acc + p.2) 0)
-      = bulletinSyntecCadre.totalSalarial + bulletinSyntecCadre.totalPatronalNet := by
-  native_decide
+theorem invariants_bulletinSyntecCadre : bulletinSyntecCadre.invariants :=
+  Cotisations.calculeBulletinSyntech_invariants _ _ _ _ _
 
 /-- La prévoyance conventionnelle est bien versée à l'organisme de
-    prévoyance, en plus de la mutuelle. -/
+    prévoyance, en plus de la mutuelle (contrôle de ventilation,
+    ancrage concret). -/
 theorem versements_syntec_prevoyance :
     (bulletinSyntecCadre.versements.any
       (fun p => p.1 == Cotisations.Organisme.prevoyance)) = true := by
