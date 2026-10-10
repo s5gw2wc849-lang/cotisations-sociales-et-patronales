@@ -1,0 +1,7 @@
+name = "Cotisations"
+version = "0.1.0"
+defaultTargets = ["Cotisations"]
+
+[[lean_lib]]
+name = "Cotisations"
+globs = ["Cotisations", "Cotisations.+"]
