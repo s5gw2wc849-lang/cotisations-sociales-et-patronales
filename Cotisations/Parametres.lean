@@ -138,13 +138,22 @@ structure ParametresAnnee where
 def ParametresAnnee.smicHoraireRGDU (pa : ParametresAnnee) : Rat :=
   if pa.ratioRGDU == 3 then pa.smicHoraire else pa.smicHoraireJuin
 
-/-- SMIC mensuel temps plein (35 h × 52/12). -/
+/-- Nombre d'heures annuelles temps plein (35 h × 52 = 1 820 h), base
+    des conversions entre taux horaire et salaire mensuel ou annuel. -/
+def heuresAnnuelles : Rat := 1820
+
+/-- Salaire mensuel correspondant à un taux horaire (base 1 820 h/an).
+    Utilisé pour le SMIC de la période de la réduction générale. -/
+def salaireMensuel (tauxHoraire : Rat) : Eur :=
+  tauxHoraire * heuresAnnuelles / (12 : Rat)
+
+/-- SMIC mensuel temps plein. -/
 def ParametresAnnee.smicMensuel (pa : ParametresAnnee) : Eur :=
-  pa.smicHoraire * (1820 : Rat) / (12 : Rat)
+  salaireMensuel pa.smicHoraire
 
 /-- SMIC annuel temps plein. -/
 def ParametresAnnee.smicAnnuel (pa : ParametresAnnee) : Eur :=
-  pa.smicHoraire * (1820 : Rat)
+  pa.smicHoraire * heuresAnnuelles
 
 /-- PASS annuel. -/
 def ParametresAnnee.passAnnuel (pa : ParametresAnnee) : Eur :=

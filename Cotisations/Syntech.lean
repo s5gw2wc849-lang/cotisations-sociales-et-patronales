@@ -72,54 +72,45 @@ def capitalDecesSyntechConforme (cadre : Bool) (capitalDeces passAnnuel : Eur) :
   if cadre then passAnnuel * 3 ≤ capitalDeces
   else passAnnuel * 2 ≤ capitalDeces
 
+/-- Ligne de prévoyance de branche (tranche 1 ou 2), partagée entre
+    l'entreprise et le salarié selon `partSalarialeBranche`. -/
+def ligneBrancheSyntech (rs : RegimeSyntech) (nom : String) (taux : Taux)
+    (assiette : Eur) (commentaire : String) : LigneCotisation :=
+  ligneMixte nom .prevoyance .cotisation assiette
+    (rs.partSalarialeBranche * taux * assiette)
+    ((1 - rs.partSalarialeBranche) * taux * assiette) commentaire
+
 /-- Lignes de prévoyance SYNTEC d'un salarié :
     - cadre : 1,50 % de la tranche 1 (employeur) + 1,10 % de la tranche 2 ;
     - non-cadre : 0,85 % de la tranche 1 + 1,10 % de la tranche 2. -/
 def lignesSyntech (rs : RegimeSyntech) (ps : ParametresSalarie)
     (t : Tranches) : List LigneCotisation :=
   (if ps.cadre then
-    [ ({ nom := "Prévoyance cadres — décès, incapacité, invalidité (CCN Syntec, art. 7 CCN cadres)"
-         organisme := .prevoyance, nature := .cotisation, cote := .mixte
-         assiette := t.tranche1
-         partSalariale := (1 - rs.partPatronaleCadres) * rs.tauxCadresT1 * t.tranche1
-         partPatronale := rs.partPatronaleCadres * rs.tauxCadresT1 * t.tranche1
-         commentaire := "1,50 % T1 minimum, dont 0,76 pt décès en priorité" } : LigneCotisation) ]
+    [ ligneMixte
+        "Prévoyance cadres — décès, incapacité, invalidité (CCN Syntec, art. 7 CCN cadres)"
+        .prevoyance .cotisation t.tranche1
+        ((1 - rs.partPatronaleCadres) * rs.tauxCadresT1 * t.tranche1)
+        (rs.partPatronaleCadres * rs.tauxCadresT1 * t.tranche1)
+        "1,50 % T1 minimum, dont 0,76 pt décès en priorité" ]
   else
-    [ ({ nom := "Prévoyance de branche — tranche 1 (CCN Syntec, avenant n° 8)"
-         organisme := .prevoyance, nature := .cotisation, cote := .mixte
-         assiette := t.tranche1
-         partSalariale := rs.partSalarialeBranche * rs.tauxBrancheT1 * t.tranche1
-         partPatronale := (1 - rs.partSalarialeBranche) * rs.tauxBrancheT1 * t.tranche1
-         commentaire := "0,85 % T1 depuis le 01/07/2026 (0,74 % avant)" } : LigneCotisation) ])
+    [ ligneBrancheSyntech rs "Prévoyance de branche — tranche 1 (CCN Syntec, avenant n° 8)"
+        rs.tauxBrancheT1 t.tranche1
+        "0,85 % T1 depuis le 01/07/2026 (0,74 % avant)" ])
   ++ (if t.tranche2 > 0 then
-    [ ({ nom := "Prévoyance de branche — tranche 2 (CCN Syntec, avenant n° 8)"
-         organisme := .prevoyance, nature := .cotisation, cote := .mixte
-         assiette := t.tranche2
-         partSalariale := rs.partSalarialeBranche * rs.tauxBrancheT2 * t.tranche2
-         partPatronale := (1 - rs.partSalarialeBranche) * rs.tauxBrancheT2 * t.tranche2
-         commentaire := "1,10 % T2 depuis le 01/07/2026 (1,13 % avant)" } : LigneCotisation) ]
+    [ ligneBrancheSyntech rs "Prévoyance de branche — tranche 2 (CCN Syntec, avenant n° 8)"
+        rs.tauxBrancheT2 t.tranche2
+        "1,10 % T2 depuis le 01/07/2026 (1,13 % avant)" ]
   else [])
 
 /-- Bulletin complet d'un salarié de la branche SYNTEC : bulletin légal
     (incluant la mutuelle passée en convention), augmenté des lignes de
-    prévoyance conventionnelles. -/
+    prévoyance conventionnelles via la primitive commune
+    `Bulletin.avecLignesSupplementaires`. -/
 def calculeBulletinSyntech (pa : ParametresAnnee) (pe : ParametresEntreprise)
     (ps : ParametresSalarie) (rs : RegimeSyntech)
     (cc : Option ConventionCollective) : Bulletin :=
   let base := calculeBulletin pa pe ps cc
-  let plafond := plafondMensuelProratise pa ps
-  let t := decoupeTranches ps.assietteSecu plafond
-  let sy := lignesSyntech rs ps t
-  let sal := sommeSalariale sy
-  let pat := sommePatronale sy
-  { base with
-    lignesPatronales := base.lignesPatronales ++ sy.filter (fun l => !l.estNulle)
-    totalSalarial := base.totalSalarial + sal
-    netAvantIR := base.netAvantIR - sal
-    totalPatronalNet := base.totalPatronalNet + pat
-    coutEmployeur := base.coutEmployeur + pat
-    versements := versementsParOrganisme
-      (base.lignesSalariales ++ base.lignesRetraite ++ base.lignesPatronales
-        ++ sy ++ base.lignesReductions) }
+  let t := decoupeTranches ps.assietteSecu (plafondMensuelProratise pa ps)
+  base.avecLignesSupplementaires (lignesSyntech rs ps t)
 
 end Cotisations

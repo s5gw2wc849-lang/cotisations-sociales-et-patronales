@@ -6,7 +6,9 @@ payés conventionnelle.
 La convention collective est intégrée ici comme unique source de
 cotisations complémentaires : le projet code les règles légales et
 s'interfacera avec la convention applicable à l'entreprise (une seule
-convention par salarié).
+convention par salarié). Les lignes salariales et patronales de chaque
+garantie (mutuelle, retraite supplémentaire) partagent la même
+mécanique via des helpers paramétrés par la cote.
 
 Contraintes légales vérifiables :
 - part patronale de mutuelle ≥ 50 % du coût total (art. L911-7 CSS) ;
@@ -28,66 +30,55 @@ def mutuelleConforme (partPatronale mutuelleTotale : Eur) : Bool :=
 def prevoyanceCadresConforme (taux partPatronale : Rat) : Bool :=
   taux ≥ 0.015 && partPatronale ≥ 0.60
 
+/-- Ligne de mutuelle (salariale ou patronale) : assiette = coût total,
+    montant = la part correspondante ; émise si la part est non nulle. -/
+def lignesMutuelle (cc : ConventionCollective) (salariale : Bool) : List LigneCotisation :=
+  let montant := if salariale then cc.mutuelleSalariale else cc.mutuellePatronale
+  if montant > 0 then
+    [ ligneTauxUnique
+        (if salariale then "Complémentaire santé (mutuelle) — part salariale"
+         else "Complémentaire santé (mutuelle) — part patronale")
+        .mutuelle .cotisation salariale (cc.mutuelleSalariale + cc.mutuellePatronale) montant ]
+  else []
+
+/-- Ligne de retraite supplémentaire conventionnelle (une cote, une
+    tranche) : émise si le taux correspondant est non nul. -/
+def lignesRetraiteSupp (rc : RegimeComplementaire) (nom : String) (salariale : Bool)
+    (assiette : Eur) : List LigneCotisation :=
+  let taux := if salariale then rc.tauxSalarial else rc.tauxPatronal
+  if taux > 0 then
+    [ligneTauxUnique nom .retraiteSupplementaire .cotisation salariale assiette (taux * assiette)]
+  else []
+
 /-- Lignes salariales issues de la convention collective. -/
 def lignesConventionSalariales (cc : ConventionCollective) (t : Tranches) :
     List LigneCotisation :=
-  (if cc.mutuelleSalariale > 0 then
-    [ { nom := "Complémentaire santé (mutuelle) — part salariale"
-        organisme := .mutuelle, nature := .cotisation, cote := .salariale
-        assiette := cc.mutuelleSalariale + cc.mutuellePatronale
-        partSalariale := cc.mutuelleSalariale } ]
-  else [])
+  lignesMutuelle cc true
   ++ (if cc.prevoyanceTauxT1 > 0 then
-    [ { nom := "Prévoyance — part salariale"
-        organisme := .prevoyance, nature := .cotisation, cote := .salariale
-        assiette := t.tranche1
-        partSalariale := (1 - cc.prevoyancePartPatronale) * cc.prevoyanceTauxT1 * t.tranche1 } ]
-  else [])
-  ++ (if cc.retraiteSupplementaireT1.tauxSalarial > 0 then
-    [ { nom := "Retraite supplémentaire — T1, part salariale"
-        organisme := .retraiteSupplementaire, nature := .cotisation, cote := .salariale
-        assiette := t.tranche1
-        partSalariale := cc.retraiteSupplementaireT1.tauxSalarial * t.tranche1 } ]
-  else [])
-  ++ (if cc.retraiteSupplementaireT2.tauxSalarial > 0 then
-    [ { nom := "Retraite supplémentaire — T2, part salariale"
-        organisme := .retraiteSupplementaire, nature := .cotisation, cote := .salariale
-        assiette := t.tranche2
-        partSalariale := cc.retraiteSupplementaireT2.tauxSalarial * t.tranche2 } ]
-  else [])
+    [ ligneTauxUnique "Prévoyance — part salariale" .prevoyance .cotisation true t.tranche1
+        ((1 - cc.prevoyancePartPatronale) * cc.prevoyanceTauxT1 * t.tranche1) ]
+    else [])
+  ++ lignesRetraiteSupp cc.retraiteSupplementaireT1
+       "Retraite supplémentaire — T1, part salariale" true t.tranche1
+  ++ lignesRetraiteSupp cc.retraiteSupplementaireT2
+       "Retraite supplémentaire — T2, part salariale" true t.tranche2
 
 /-- Lignes patronales issues de la convention collective. -/
 def lignesConventionPatronales (cc : ConventionCollective) (t : Tranches) :
     List LigneCotisation :=
-  (if cc.mutuellePatronale > 0 then
-    [ { nom := "Complémentaire santé (mutuelle) — part patronale"
-        organisme := .mutuelle, nature := .cotisation, cote := .patronale
-        assiette := cc.mutuelleSalariale + cc.mutuellePatronale
-        partPatronale := cc.mutuellePatronale } ]
-  else [])
+  lignesMutuelle cc false
   ++ (if cc.prevoyanceTauxT1 > 0 then
-    [ { nom := "Prévoyance — part patronale"
-        organisme := .prevoyance, nature := .cotisation, cote := .patronale
-        assiette := t.tranche1
-        partPatronale := cc.prevoyancePartPatronale * cc.prevoyanceTauxT1 * t.tranche1 } ]
-  else [])
-  ++ (if cc.retraiteSupplementaireT1.tauxPatronal > 0 then
-    [ { nom := "Retraite supplémentaire — T1, part patronale"
-        organisme := .retraiteSupplementaire, nature := .cotisation, cote := .patronale
-        assiette := t.tranche1
-        partPatronale := cc.retraiteSupplementaireT1.tauxPatronal * t.tranche1 } ]
-  else [])
-  ++ (if cc.retraiteSupplementaireT2.tauxPatronal > 0 then
-    [ { nom := "Retraite supplémentaire — T2, part patronale"
-        organisme := .retraiteSupplementaire, nature := .cotisation, cote := .patronale
-        assiette := t.tranche2
-        partPatronale := cc.retraiteSupplementaireT2.tauxPatronal * t.tranche2 } ]
-  else [])
+    [ ligneTauxUnique "Prévoyance — part patronale" .prevoyance .cotisation false t.tranche1
+        (cc.prevoyancePartPatronale * cc.prevoyanceTauxT1 * t.tranche1) ]
+    else [])
+  ++ lignesRetraiteSupp cc.retraiteSupplementaireT1
+       "Retraite supplémentaire — T1, part patronale" false t.tranche1
+  ++ lignesRetraiteSupp cc.retraiteSupplementaireT2
+       "Retraite supplémentaire — T2, part patronale" false t.tranche2
   ++ (if cc.tauxCaisseCongesPayes > 0 then
-    [ { nom := "Caisse de congés payés / intempéries (conventionnelle)"
-        organisme := .caisseCongesPayes, nature := .cotisation, cote := .patronale
-        assiette := t.tranche1 + t.tranche2 + t.tranche3
-        partPatronale := cc.tauxCaisseCongesPayes * (t.tranche1 + t.tranche2 + t.tranche3) } ]
-  else [])
+    let a := t.tranche1 + t.tranche2 + t.tranche3
+    [ ligneTauxUnique "Caisse de congés payés / intempéries (conventionnelle)"
+        .caisseCongesPayes .cotisation false a (cc.tauxCaisseCongesPayes * a) ]
+    else [])
 
 end Cotisations

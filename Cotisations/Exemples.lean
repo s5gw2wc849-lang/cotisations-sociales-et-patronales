@@ -181,27 +181,24 @@ theorem rgdu_juin_montant :
       (Cotisations.parametresRGDU paJuin peGrand) 2000 0) 635.3 635.9 := by
   native_decide
 
+/-- Paramètres de la régularisation progressive (janvier 2026,
+    ≥ 50 salariés, SMIC cumulé sur 7 mois). -/
+def prgduRegul : Cotisations.ParametresRGDU :=
+  { ratioSMIC := 3, tMin := 0.02, tDelta := 0.3821, diviseur := 2
+    exposantNum := 7, exposantDen := 4
+    partIRCRatio := 0.0601 / 0.4021, partUrssafRatio := 0.3420 / 0.4021
+    plafondDFS := 1.30
+    smicPeriode := Cotisations.salaireMensuel 12.02 * 7, smicHoraire := 12.02 }
+
 /-- Exemple officiel de régularisation progressive (janvier 2026, ≥ 50 salariés,
     15 000 € cumulés sur 7 mois) : coefficient = 0,2652. -/
 theorem rgdu_regul_coef :
-    Cotisations.dans (Cotisations.coefficientRGDU
-      { ratioSMIC := 3, tMin := 0.02, tDelta := 0.3821, diviseur := 2
-        exposantNum := 7, exposantDen := 4
-        partIRCRatio := 0.0601 / 0.4021, partUrssafRatio := 0.3420 / 0.4021
-        plafondDFS := 1.30
-        smicPeriode := 12.02 * 1820 / 12 * 7, smicHoraire := 12.02 }
-      15000 0) 0.2651 0.2653 := by
+    Cotisations.dans (Cotisations.coefficientRGDU prgduRegul 15000 0) 0.2651 0.2653 := by
   native_decide
 
 /-- Réduction cumulée officielle : ≈ 3 978 €. -/
 theorem rgdu_regul_montant :
-    Cotisations.dans (Cotisations.montantRGDU
-      { ratioSMIC := 3, tMin := 0.02, tDelta := 0.3821, diviseur := 2
-        exposantNum := 7, exposantDen := 4
-        partIRCRatio := 0.0601 / 0.4021, partUrssafRatio := 0.3420 / 0.4021
-        plafondDFS := 1.30
-        smicPeriode := 12.02 * 1820 / 12 * 7, smicHoraire := 12.02 }
-      15000 0) 3977.5 3979.5 := by
+    Cotisations.dans (Cotisations.montantRGDU prgduRegul 15000 0) 3977.5 3979.5 := by
   native_decide
 
 /-- Exemple officiel Mayotte (rémunération 1 600 €, SMIC 1 449,93 €) :

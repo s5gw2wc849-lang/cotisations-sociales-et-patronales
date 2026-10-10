@@ -73,7 +73,7 @@ def parametresRGDU (pa : ParametresAnnee) (pe : ParametresEntreprise) : Parametr
       partUrssafRatio := 1
       plafondDFS := pa.rgduPlafondDFS
       smicPeriode := pa.smicMensuelMayotte
-      smicHoraire := pa.smicMensuelMayotte * (12 : Rat) / (1820 : Rat) }
+      smicHoraire := pa.smicMensuelMayotte * (12 : Rat) / heuresAnnuelles }
   else
     { ratioSMIC := pa.ratioRGDU
       tMin := pa.rgduTMin
@@ -84,7 +84,7 @@ def parametresRGDU (pa : ParametresAnnee) (pe : ParametresEntreprise) : Parametr
       partIRCRatio := pa.rgduPartIRCT1 / tMax
       partUrssafRatio := (if grand then pa.rgduPartUrssafGrand else pa.rgduPartUrssafPetit) / tMax
       plafondDFS := pa.rgduPlafondDFS
-      smicPeriode := pa.smicHoraireRGDU * (1820 : Rat) / (12 : Rat)
+      smicPeriode := salaireMensuel pa.smicHoraireRGDU
       smicHoraire := pa.smicHoraireRGDU }
 
 /-- Coefficient de réduction (0 si la rémunération dépasse le plafond). -/

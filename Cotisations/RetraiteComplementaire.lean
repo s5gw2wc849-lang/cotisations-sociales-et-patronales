@@ -11,6 +11,10 @@ Paramètres 2026 (circulaire Agirc-Arrco 2025-20) :
 - CET : 0,35 % sur T1 + T2 pour les salariés dont la rémunération dépasse
   le PASS (0,14 % salarié / 0,21 % employeur) ;
 - APEC : 0,06 % sur T1 + T2 limitée à 4 PASS (0,024 % / 0,036 %).
+
+Les cotisations Agirc-Arrco (T1/T2) et les CEG (T1/T2) partagent la même
+mécanique « taux salarié / taux employeur × assiette de tranche » via la
+primitive `ligneAgircArrco`.
 -/
 import Cotisations.Assiette
 import Cotisations.Organismes
@@ -37,57 +41,48 @@ structure ParametresAgircArrco where
 /-- Paramètres officiels 2026. -/
 def parametresAgircArrco2026 : ParametresAgircArrco := {}
 
+/-- Ligne Agirc-Arrco générique : taux salarié et taux employeur appliqués
+    à une assiette de tranche (sert aux cotisations T1/T2 et aux CEG). -/
+def ligneAgircArrco (nom : String) (tSalarial tPatronal : Taux)
+    (assiette : Eur) (commentaire : String := "") : LigneCotisation :=
+  ligneMixte nom .agircArrco .cotisation assiette
+    (tSalarial * assiette) (tPatronal * assiette) commentaire
+
 /-- Cotisation Agirc-Arrco tranche 1 (taux appelé, répartition 40/60). -/
 def cotisationAgircArrcoT1 (pp : ParametresAgircArrco) (t : Tranches) : LigneCotisation :=
-  { nom := "Retraite complémentaire Agirc-Arrco — tranche 1"
-    organisme := .agircArrco, nature := .cotisation, cote := .mixte
-    assiette := t.tranche1
-    partSalariale := pp.t1Salarial * t.tranche1
-    partPatronale := pp.t1Patronal * t.tranche1
-    commentaire := "Taux appelé 7,87 % (contractuel 6,20 % × 127 %)" }
+  ligneAgircArrco "Retraite complémentaire Agirc-Arrco — tranche 1"
+    pp.t1Salarial pp.t1Patronal t.tranche1
+    "Taux appelé 7,87 % (contractuel 6,20 % × 127 %)"
 
 /-- Cotisation Agirc-Arrco tranche 2 (taux appelé, répartition 40/60). -/
 def cotisationAgircArrcoT2 (pp : ParametresAgircArrco) (t : Tranches) : LigneCotisation :=
-  { nom := "Retraite complémentaire Agirc-Arrco — tranche 2"
-    organisme := .agircArrco, nature := .cotisation, cote := .mixte
-    assiette := t.tranche2
-    partSalariale := pp.t2Salarial * t.tranche2
-    partPatronale := pp.t2Patronal * t.tranche2
-    commentaire := "Taux appelé 21,59 % (contractuel 17 % × 127 %)" }
+  ligneAgircArrco "Retraite complémentaire Agirc-Arrco — tranche 2"
+    pp.t2Salarial pp.t2Patronal t.tranche2
+    "Taux appelé 21,59 % (contractuel 17 % × 127 %)"
 
 /-- Contribution d'équilibre général (CEG) — tranche 1. -/
 def cegT1 (pp : ParametresAgircArrco) (t : Tranches) : LigneCotisation :=
-  { nom := "Contribution d'équilibre général (CEG) — tranche 1"
-    organisme := .agircArrco, nature := .cotisation, cote := .mixte
-    assiette := t.tranche1
-    partSalariale := pp.cegT1Salarial * t.tranche1
-    partPatronale := pp.cegT1Patronal * t.tranche1 }
+  ligneAgircArrco "Contribution d'équilibre général (CEG) — tranche 1"
+    pp.cegT1Salarial pp.cegT1Patronal t.tranche1
 
 /-- Contribution d'équilibre général (CEG) — tranche 2. -/
 def cegT2 (pp : ParametresAgircArrco) (t : Tranches) : LigneCotisation :=
-  { nom := "Contribution d'équilibre général (CEG) — tranche 2"
-    organisme := .agircArrco, nature := .cotisation, cote := .mixte
-    assiette := t.tranche2
-    partSalariale := pp.cegT2Salarial * t.tranche2
-    partPatronale := pp.cegT2Patronal * t.tranche2 }
+  ligneAgircArrco "Contribution d'équilibre général (CEG) — tranche 2"
+    pp.cegT2Salarial pp.cegT2Patronal t.tranche2
 
 /-- Contribution d'équilibre technique (CET) : 0,35 % sur T1 + T2 pour les
     salariés dont la rémunération excède le plafond (tranche 2 > 0). -/
 def cotisationCET (pp : ParametresAgircArrco) (t : Tranches) : LigneCotisation :=
-  { nom := "Contribution d'équilibre technique (CET)"
-    organisme := .agircArrco, nature := .cotisation, cote := .mixte
-    assiette := t.tranche1 + t.tranche2
-    partSalariale := if t.tranche2 > 0 then pp.cetSalarial * (t.tranche1 + t.tranche2) else 0
-    partPatronale := if t.tranche2 > 0 then pp.cetPatronal * (t.tranche1 + t.tranche2) else 0 }
+  let a := t.tranche1 + t.tranche2
+  ligneMixte "Contribution d'équilibre technique (CET)" .agircArrco .cotisation a
+    (if t.tranche2 > 0 then pp.cetSalarial * a else 0)
+    (if t.tranche2 > 0 then pp.cetPatronal * a else 0)
 
 /-- Cotisation APEC (cadres) : 0,06 % sur T1 + T2 limitée à 4 PASS. -/
 def cotisationApec (pp : ParametresAgircArrco) (t : Tranches) (plafond : Eur) : LigneCotisation :=
-  let assiette := min (t.tranche1 + t.tranche2) (pp.apecPlafondPass * plafond)
-  { nom := "Cotisation APEC"
-    organisme := .apec, nature := .cotisation, cote := .mixte
-    assiette := assiette
-    partSalariale := pp.apecSalarial * assiette
-    partPatronale := pp.apecPatronal * assiette }
+  let a := min (t.tranche1 + t.tranche2) (pp.apecPlafondPass * plafond)
+  ligneMixte "Cotisation APEC" .apec .cotisation a
+    (pp.apecSalarial * a) (pp.apecPatronal * a)
 
 /-- Toutes les lignes Agirc-Arrco (+ APEC si cadre) d'un salarié. -/
 def lignesRetraiteComplementaire (ps : ParametresSalarie) (pp : ParametresAgircArrco)

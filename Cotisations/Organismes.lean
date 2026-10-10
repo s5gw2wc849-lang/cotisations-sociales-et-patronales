@@ -65,6 +65,30 @@ def sommeSalariale (l : List LigneCotisation) : Eur :=
 def sommePatronale (l : List LigneCotisation) : Eur :=
   l.foldl (fun acc x => acc + x.partPatronale) 0
 
+/-! ### Constructeurs de lignes -/
+
+/-- Ligne de cotisation à part unique : `salariale = true` place le
+    montant en part salariale, sinon en part patronale. -/
+def ligneTauxUnique (nom : String) (org : Organisme) (nat : NatureCotisation)
+    (salariale : Bool) (assiette montant : Eur) (commentaire : String := "") :
+    LigneCotisation :=
+  { nom := nom, organisme := org, nature := nat
+    cote := if salariale then .salariale else .patronale
+    assiette := assiette
+    partSalariale := if salariale then montant else 0
+    partPatronale := if salariale then 0 else montant
+    commentaire := commentaire }
+
+/-- Ligne de cotisation mixte (parts salariale et patronale sur une même
+    ligne, comme la retraite complémentaire ou la prévoyance). -/
+def ligneMixte (nom : String) (org : Organisme) (nat : NatureCotisation)
+    (assiette partSalariale partPatronale : Eur) (commentaire : String := "") :
+    LigneCotisation :=
+  { nom := nom, organisme := org, nature := nat, cote := .mixte
+    assiette := assiette
+    partSalariale := partSalariale, partPatronale := partPatronale
+    commentaire := commentaire }
+
 /-- Agrège les montants versés à chaque organisme (salarial + patronal),
     dans l'ordre d'apparition. -/
 def versementsParOrganisme (l : List LigneCotisation) : List (Organisme × Eur) :=

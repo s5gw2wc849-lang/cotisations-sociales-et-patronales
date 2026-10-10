@@ -38,6 +38,26 @@ structure Bulletin where
   versements : List (Organisme × Eur)
   deriving Repr, DecidableEq
 
+/-- Intègre des lignes mixtes supplémentaires (prévoyance conventionnelle,
+    cotisations d'une branche professionnelle…) dans un bulletin existant :
+    les parts salariales s'ajoutent au total salarial et diminuent le net,
+    les parts patronales s'ajoutent au coût employeur, et les versements
+    par organisme sont recalculés. `calculeBulletinSyntech` et toute
+    convention future s'appuient sur cette primitive commune. -/
+def Bulletin.avecLignesSupplementaires (b : Bulletin) (lignes : List LigneCotisation) :
+    Bulletin :=
+  let sal := sommeSalariale lignes
+  let pat := sommePatronale lignes
+  { b with
+    lignesPatronales := b.lignesPatronales ++ lignes.filter (fun l => !l.estNulle)
+    totalSalarial := b.totalSalarial + sal
+    netAvantIR := b.netAvantIR - sal
+    totalPatronalNet := b.totalPatronalNet + pat
+    coutEmployeur := b.coutEmployeur + pat
+    versements := versementsParOrganisme
+      (b.lignesSalariales ++ b.lignesRetraite ++ b.lignesPatronales
+        ++ lignes ++ b.lignesReductions) }
+
 /-- Calcule le bulletin complet d'un salarié pour une période mensuelle. -/
 def calculeBulletin (pa : ParametresAnnee) (pe : ParametresEntreprise)
     (ps : ParametresSalarie) (cc : Option ConventionCollective) : Bulletin :=

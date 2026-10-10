@@ -10,6 +10,17 @@ import Cotisations.Organismes
 
 namespace Cotisations
 
+/-- Partie positive de `x` (plafonnement par le bas à zéro). -/
+def clamp0 (x : Eur) : Eur := max 0 x
+
+/-- Découpe un montant selon un barème progressif à deux seuils : la part
+    sous `s1`, la part entre `s1` et `s2`, la part au-delà de `s2`.
+    Cette primitive unique sert au plafonnement de sécurité sociale
+    (`decoupeTranches`) comme au barème de la taxe sur les salaires. -/
+def decoupeBareme (x s1 s2 : Eur) : Eur × Eur × Eur :=
+  let t1 := min x s1
+  (t1, clamp0 (min x s2 - s1), clamp0 (x - s2))
+
 /-- Découpage d'une assiette selon les tranches de plafond. -/
 structure Tranches where
   tranche1 : Eur
@@ -25,9 +36,7 @@ structure Tranches where
     assiette) ne sont pas prouvées en toute généralité ; elles sont
     vérifiées sur des cas concrets dans `Exemples.lean`. -/
 def decoupeTranches (assiette plafond : Eur) : Tranches :=
-  let t1 := min assiette plafond
-  let t2 := max 0 (min assiette (8 * plafond) - t1)
-  let t3 := max 0 (assiette - min assiette (8 * plafond))
+  let (t1, t2, t3) := decoupeBareme assiette plafond (8 * plafond)
   { tranche1 := t1, tranche2 := t2, tranche3 := t3 }
 
 /-- Plafond mensuel proratisé (temps partiel, entrée ou sortie en cours de mois). -/
